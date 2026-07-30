@@ -151,14 +151,17 @@ typename Color::SharedConstData read() noexcept {
 	fin >> nTaxa >> nElements;
 	data.elements.resize(nElements);
 	data.nTaxa = nTaxa;
-	for (int iTaxon = 0; iTaxon < nTaxa; ++iTaxon) {
+	for (int iElement = 0; iElement < nElements; ++iElement) {
+		data.elements[iElement].alleleType.resize(nTaxa);
+	}
+	for (int iRow = 0; iRow < nTaxa; ++iRow) {
 		string TaxonName;
 		fin >> TaxonName;
-		common::taxonName2ID[TaxonName];
+		int iTaxon = common::taxonName2ID[TaxonName];
 		for (int iElement = 0; iElement < nElements; ++iElement) {
 			int alleleType;
 			fin >> alleleType;
-			data.elements[iElement].alleleType.push_back(alleleType);
+			data.elements[iElement].alleleType[iTaxon] = alleleType;
 			if (alleleType >= data.elements[iElement].nType) data.elements[iElement].nType = alleleType + 1;
 		}
 	}
