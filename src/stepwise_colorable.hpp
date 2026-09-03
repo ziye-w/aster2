@@ -52,5 +52,14 @@ template<class T> concept TAXON_ORDER_PRIORITIZING = requires(std::vector<size_t
 	{ T::taxonOrderPrioritizing(taxonOrder) } noexcept;
 };
 
+ChangeLog logBRANCH_SUPPORT("BRANCH_SUPPORT",
+	"2026-09-03", "Chao Zhang", "Compatible for support annotation", "patch");
+
+template<class T> concept BRANCH_SUPPORT = requires(T t, std::string const& support, typename T::SharedConstData const& data, common::AnnotatedBinaryTree & tree, size_t nThreads)
+{
+	requires STEPWISE_COLORABLE<T>;
+	{ t.annotateBranchSupport(support, data, tree, nThreads) } noexcept -> std::convertible_to<std::string const>;
+};
+
 };
 #endif

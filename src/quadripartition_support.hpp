@@ -17,10 +17,22 @@ template<typename Support> concept QUADRIPARTITION_SUPPORT = requires(typename S
 	requires stepwise_colorable::QUADRIPARTITION_STEPWISE_COLORABLE<typename Support::Color>;
 	{ Support::staticInitialize(random, index) } noexcept;
 	{ Support::ZERO } noexcept -> std::convertible_to<Support>;
+	{ Support::SHORT_NAME } noexcept -> std::convertible_to<string>;
 	{ Support::FULL_NAME } noexcept -> std::convertible_to<string>;
+	{ Support::MAIN_KEY } noexcept -> std::convertible_to<string>;
+	{ Support::KEYS } noexcept -> std::convertible_to<vector<string> const>;
 	{ Support::map(color, index) } noexcept -> std::convertible_to<array<Support, 3> >;
 	{ Support::reduce(support, support) } noexcept -> std::convertible_to<Support>;
 	{ Support::annotate(node, support, support, support) } noexcept;
+};
+
+ChangeLog logQUADRIPARTITION_SUPPORT_POSTPROCESS("QUADRIPARTITION_SUPPORT_POSTPROCESS",
+	"2026-09-03", "Chao Zhang", "Supporting post-processing", "patch");
+
+template<typename Support> concept QUADRIPARTITION_SUPPORT_POSTPROCESS = requires(common::AnnotatedBinaryTree & tree)
+{
+	requires QUADRIPARTITION_SUPPORT<Support>;
+	{ Support::postProcess(tree) } noexcept;
 };
 
 template<stepwise_colorable::QUADRIPARTITION_STEPWISE_COLORABLE C> class QuartetScore {
@@ -28,7 +40,10 @@ public:
 	using Color = C;
 	using score_t = typename Color::score_t;
 	static QuartetScore const ZERO;
+	static inline string const SHORT_NAME = "qs";
 	static inline string const FULL_NAME = "Quartet Score";
+	static inline string const MAIN_KEY = common::AnnotatedBinaryTree::NORMALIZED_QUADRIPARTITION_SCORE;
+	static inline vector<string> const KEYS = { common::AnnotatedBinaryTree::QUADRIPARTITION_SCORE, common::AnnotatedBinaryTree::QUADRIPARTITION_ALTERNATIVE_1_SCORE, common::AnnotatedBinaryTree::QUADRIPARTITION_ALTERNATIVE_2_SCORE, common::AnnotatedBinaryTree::NORMALIZED_QUADRIPARTITION_SCORE };
 
 private:
 	score_t score;
@@ -63,7 +78,11 @@ public:
 	using Color = C;
 	using score_t = typename Color::score_t;
 	static LocalBlockBootstrap const ZERO;
+	static inline string const SHORT_NAME = "lbb";
 	static inline string const FULL_NAME = "Local Block Bootstrap";
+	static inline string const MAIN_KEY = "LocalBlockBootstrap";
+	static inline vector<string> const KEYS = { "LocalBlockBootstrap" };
+
 	static inline size_t constexpr N_BLOCKS = 50;
 	static inline size_t constexpr N_BOOTSTRAPS = 1000;
 	static size_t nElements;
@@ -174,11 +193,62 @@ public:
 		ThreadPool3<Support> threadpool(nThreads, 0, data.nElements());
 		QuadripartitionScore<Support> qs(color, threadpool, tree, verbose);
 		qs.labelTree();
+		if constexpr (QUADRIPARTITION_SUPPORT_POSTPROCESS<Support>) Support::postProcess(tree);
+	}
+};
+
+template<class BA, class Color> concept BRANCH_ANNOTATION = requires(std::string const& name, typename Color::SharedConstData const& data, common::AnnotatedBinaryTree & tree, size_t nThreads, int verbose) {
+	requires stepwise_colorable::QUADRIPARTITION_STEPWISE_COLORABLE<Color>;
+	{ BA::template shortNames<Color>() } -> std::convertible_to<std::vector<std::string> const>;
+	{ BA::template fullNames<Color>() } -> std::convertible_to<std::vector<std::string> const>;
+	{ BA::template isValid<Color>(name) } -> std::convertible_to<bool>;
+	{ BA::template annotate<Color>(name, data, tree, nThreads, verbose) } -> std::convertible_to<std::string>;
+	{ BA::template annotateAll<Color>(data, tree, nThreads, verbose) } -> std::convertible_to<std::vector<std::string> const>;
+};
+
+template<template<class> class S, template<class> class... Args> class BranchAnnotation {
+public:
+	template<stepwise_colorable::QUADRIPARTITION_STEPWISE_COLORABLE Color> requires QUADRIPARTITION_SUPPORT<S<Color> > static std::vector<std::string> const shortNames() {
+		std::vector<std::string> res;
+		if constexpr (sizeof...(Args) > 0) res = BranchAnnotation<Args...>::template shortNames<Color>();
+		res.emplace_back(S<Color>::SHORT_NAME);
+		return res;
 	}
 
-	static void annotate(vector<string> const& supports, Data const& data, Tree& tree, size_t nThreads, int verbose) {
+	template<stepwise_colorable::QUADRIPARTITION_STEPWISE_COLORABLE Color> requires QUADRIPARTITION_SUPPORT<S<Color> > static std::vector<std::string> const fullNames() {
+		std::vector<std::string> res;
+		if constexpr (sizeof...(Args) > 0) res = BranchAnnotation<Args...>::template fullNames<Color>();
+		res.emplace_back(S<Color>::FULL_NAME);
+		return res;
+	}
+
+	template<stepwise_colorable::QUADRIPARTITION_STEPWISE_COLORABLE Color> requires QUADRIPARTITION_SUPPORT<S<Color> > static bool const isValid(std::string const& name) {
+		if (name == S<Color>::SHORT_NAME) return true;
+		if constexpr (sizeof...(Args) > 0) {
+			return BranchAnnotation<Args...>::template isValid<Color>(name);
+		}
+		return false;
+	}
+
+	template<stepwise_colorable::QUADRIPARTITION_STEPWISE_COLORABLE Color> requires QUADRIPARTITION_SUPPORT<S<Color> > static std::string const annotate(std::string const& name, Color::SharedConstData const& data, common::AnnotatedBinaryTree& tree, size_t nThreads, int verbose) {
+		if (name == S<Color>::SHORT_NAME) {
+			Color color(data);
+			Procedure<ProcedureAttributes<Color> >::template annotate<S<Color> >(color, data, tree, nThreads, verbose);
+			return S<Color>::MAIN_KEY;
+		}
+		if constexpr (sizeof...(Args) > 0) {
+			return BranchAnnotation<Args...>::template annotate<Color>(name, data, tree, nThreads, verbose);
+		}
+		return "";
+	}
+
+	template<stepwise_colorable::QUADRIPARTITION_STEPWISE_COLORABLE Color> requires QUADRIPARTITION_SUPPORT<S<Color> > static std::vector<std::string> annotateAll(Color::SharedConstData const& data, common::AnnotatedBinaryTree& tree, size_t nThreads, int verbose) {
+		std::vector<std::string> res;
+		if constexpr (sizeof...(Args) > 0) res = BranchAnnotation<Args...>::template annotateAll<Color>(data, tree, nThreads, verbose);
 		Color color(data);
-		return annotate<LocalBlockBootstrap<Color> >(color, data, tree, nThreads, verbose);
+		Procedure<ProcedureAttributes<Color> >::template annotate<S<Color> >(color, data, tree, nThreads, verbose);
+		for (string const& key : S<Color>::KEYS) res.push_back(key);
+		return res;
 	}
 };
 

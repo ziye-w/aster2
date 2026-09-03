@@ -1,6 +1,6 @@
-#include "driver.hpp"
 #include "optimization_algorithm.hpp"
 #include "quadripartition_support.hpp"
+#include "driver.hpp"
 
 #ifdef CASTER
 #include "caster.hpp"
@@ -95,20 +95,21 @@ int main(int argc, char* argv[]) {
 
 		ARG.log() << "Time after optimization: " << (std::chrono::duration_cast<std::chrono::minutes>(Clock::now() - start)).count() << " minute(s)" << std::endl;
 
-		if constexpr(stepwise_colorable::QUADRIPARTITION_STEPWISE_COLORABLE<Color>) {
-			using SupportAlg = quadripartition_support::Procedure<quadripartition_support::ProcedureAttributes<Color> >;
-			SupportAlg::annotate({}, stepwiseColorSharedConstData, tree, nThreads, 0);
+		string supportKey;
+		if constexpr(driver::ANNOTATION_READY<my_tool::Driver>) {
+			//supportKey = Driver::BranchAnnotation::template annotate<Color>(Driver::DEFAULT_SUPPORT_ANNOTATION(), stepwiseColorSharedConstData, tree, nThreads, 0);
+			supportKey = driver::annotate<my_tool::Driver, Color>(stepwiseColorSharedConstData, tree, nThreads, 0);
 		}
 
 		ARG.log() << "Time after support annotation: " << (std::chrono::duration_cast<std::chrono::minutes>(Clock::now() - start)).count() << " minute(s)" << std::endl;
 
 		if (ARG.has("output")) {
 			std::ofstream fout(ARG.get<string>("output"));
-			tree.displaySimpleNewick<double, double>(fout, "LocalBlockBootstrap", "length");
+			tree.displaySimpleNewick<double, double>(fout, supportKey, "length");
 			fout << endl;
 		}
 		else {
-			tree.displaySimpleNewick<double, double>(std::cout, "LocalBlockBootstrap", "length");
+			tree.displaySimpleNewick<double, double>(std::cout, supportKey, "length");
 			std::cout << endl;
 		}
 	}, Driver::getStepwiseColorSharedConstData());

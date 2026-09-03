@@ -352,7 +352,7 @@ template<typename DataClass> DataClass read() {
 };
 
 ChangeLog logDriver("Driver",
-	"2026-02-01", "Chao Zhang", "Change prgramName to caster", "patch",
+	"2026-02-01", "Chao Zhang", "Change programName to caster", "patch",
 	"2026-02-08", "Chao Zhang", "Adding more type support", "patch");
 
 template<bool> class Driver : public common::LogInfo
@@ -361,6 +361,9 @@ template<bool> class Driver : public common::LogInfo
 
 public:
 	using DataClasses = std::variant<typename Color<StepwiseColorDefaultAttributes<bool, unsigned char> >::SharedConstData, typename Color<StepwiseColorDefaultAttributes<unsigned char, unsigned char> >::SharedConstData, typename Color<StepwiseColorDefaultAttributes<bool, unsigned short> >::SharedConstData, typename Color<StepwiseColorDefaultAttributes<unsigned char, unsigned short> >::SharedConstData, typename Color<StepwiseColorDefaultAttributes<unsigned short, unsigned short> >::SharedConstData>;
+	using BranchAnnotation = quadripartition_support::BranchAnnotation<quadripartition_support::QuartetScore, quadripartition_support::LocalBlockBootstrap>;
+	
+	static std::string constexpr DEFAULT_SUPPORT_ANNOTATION() noexcept { return "lbb"; };
 	
 	static std::pair<string, string> programNames() noexcept {
 		return { "caster", "Coalescence-aware Alignment-based Species Tree EstimatoR" };
@@ -376,6 +379,10 @@ public:
 		try { return DriverHelper::read<std::variant_alternative_t<2, DataClasses> >(); } catch (...) {}
 		try { return DriverHelper::read<std::variant_alternative_t<3, DataClasses> >(); } catch (...) {}
 		return DriverHelper::read<std::variant_alternative_t<4, DataClasses> >();
+	}
+
+	static std::vector<std::string> constexpr getBranchSupports() noexcept {
+		return { "qs", "bootstrap" };
 	}
 };
 
